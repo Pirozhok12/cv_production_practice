@@ -1,5 +1,5 @@
 import os
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QComboBox, QPushButton, QLabel
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QComboBox, QPushButton, QLabel, QCheckBox
 from PyQt6.QtCore import QThread, pyqtSignal, Qt
 from PyQt6.QtGui import QImage, QPixmap
 from core.settings import WEIGHTS_PATH , SAMPLES_DIR
@@ -10,14 +10,16 @@ class WorkerThread(QThread):
     finished   = pyqtSignal()
     frame_ready = pyqtSignal(object)
 
-    def __init__(self, pipeline: VideoPipeline, video_path: str):
+    def __init__(self, pipeline: VideoPipeline, video_path: str, show_mask_fn):
         super().__init__()
         self.pipeline   = pipeline
         self.video_path = video_path
+        self.show_mask_fn = show_mask_fn
 
     def run(self):
-        self.pipeline.run(self.video_path, frame_callback=self.frame_ready.emit)
+        self.pipeline.run(self.video_path, frame_callback=self.frame_ready.emit, show_mask_fn = self.show_mask_fn)
         self.finished.emit()
+        
 
 
 class MainWindow(QWidget):
@@ -40,6 +42,10 @@ class MainWindow(QWidget):
         self.btn.clicked.connect(self.start_tracking)
         layout.addWidget(self.btn)
 
+        self.mask_checkbox = QCheckBox("Кортикальний зор")
+        self.mask_checkbox.setChecked(True)
+        layout.addWidget(self.mask_checkbox)
+
         self.video_label = QLabel()
         self.video_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -52,7 +58,7 @@ class MainWindow(QWidget):
         filepath = os.path.join(SAMPLES_DIR, filename)
 
         self.btn.setEnabled(False)
-        self.worker = WorkerThread(self.pipeline, filepath)
+        self.worker = WorkerThread(self.pipeline, filepath, show_mask_fn=self.mask_checkbox.isChecked)
         self.worker.finished.connect(lambda: self.btn.setEnabled(True))
         self.worker.frame_ready.connect(self.update_frame)  # ← підключаємо сигнал
         self.worker.start()

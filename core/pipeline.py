@@ -2,12 +2,13 @@ import cv2
 from ultralytics import YOLO
 from core.settings import TRACKER
 from core.renderer import render_dot_mask
+import numpy as np
 
 class VideoPipeline:
     def __init__(self, weights: str):
         self.model = YOLO(weights)
 
-    def run(self, video_path: str, frame_callback=None, output_path: str | None = None):
+    def run(self, video_path: str, frame_callback=None, output_path: str | None = None, show_mask_fn=None):
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             raise ValueError(f"Cannot open: {video_path}")
@@ -27,7 +28,11 @@ class VideoPipeline:
                 if not ok:
                     break
                 results = self.model.track(frame, **TRACKER)
-                rendered = render_dot_mask(results, width, height)
+                
+                if show_mask_fn is None or show_mask_fn():
+                    rendered = render_dot_mask(results, width, height, frame)
+                else:
+                    rendered = rendered = results[0].plot()              
 
                 if writer:
                     writer.write(rendered)

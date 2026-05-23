@@ -3,17 +3,18 @@ venv310/
 __pycache__/
 *.pyc
 *.pyo
-
+train_yolo.ipynb
 
 *.pt
 *.pth
 *.onnx
 
 
-data/dataset/
 data/runs/
 data/samples/
-
+data/DS_FacePart_LaPa/
+data/DS_Face_Body/
+data/DS_SpoonKnife/
 
 outputs/
 

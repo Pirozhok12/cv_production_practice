@@ -1,45 +1,57 @@
 import cv2
 import numpy as np
-from core.settings import DOT_RADIUS, DOT_SPACING
-
-def render_dot_mask( results, frame_width, frame_height):
-
-    canvas = np.zeros((frame_height, frame_width), dtype=np.float32)
-    dot_spacing = DOT_SPACING
-    max_radius = DOT_RADIUS 
-    if results[0].masks is not None:
-
-        for mask in results[0].masks.data.cpu().numpy():
-
-            # resize soft mask
-            soft_mask = cv2.resize(
-                mask,
-                (frame_width, frame_height),
-                interpolation=cv2.INTER_LINEAR
-            )
-
-            for y in range(0, frame_height, dot_spacing):
-                for x in range(0, frame_width, dot_spacing):
-
-                    value = soft_mask[y, x]  
-
-                    if value > 0.01:
-
-                        intensity = int(value * 255)
+from core.settings import CANNY_LOW, CANNY_HIGH, CANNY_GRID, CANNY_MIN_STRENGTH
 
 
-                        radius = max(1, int(value * max_radius))
+def _get_edges(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    gray = clahe.apply(gray)
+    gray = cv2.bilateralFilter(gray, 9, 75, 75)
+    return cv2.Canny(gray, CANNY_LOW, CANNY_HIGH)
 
-                        cv2.circle(
-                            canvas,
-                            (x, y),
-                            radius,
-                            intensity,
-                            -1
-                        )
 
-    canvas = cv2.GaussianBlur(canvas, (5, 5), 0)
+def _dot_color_and_radius(strength, grid):
+    t = strength / 255.0
+    color = (int(255 * t), int(180 * (1 - t)), int(255 * (1 - t)))
+    radius = max(2, int(grid * 0.15 + t * grid * 0.2))
+    return color, radius
 
-    canvas = np.clip(canvas, 0, 255).astype(np.uint8)
 
-    return cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR)
+def _process_cell(canvas, edges, binary, gx, gy):
+    cell_mask = binary[gy:gy+CANNY_GRID, gx:gx+CANNY_GRID]
+    cell_edges = edges[gy:gy+CANNY_GRID, gx:gx+CANNY_GRID]
+
+    if not cell_mask.any():
+        return
+
+    strength = cell_edges[cell_mask].mean()
+    if strength < CANNY_MIN_STRENGTH:
+        return
+
+    edge_points = np.argwhere((cell_edges * cell_mask) > 0)
+    if len(edge_points) == 0:
+        return
+
+    cy_local, cx_local = edge_points[len(edge_points) // 2]
+    color, radius = _dot_color_and_radius(strength, CANNY_GRID)
+    cv2.circle(canvas, (gx + cx_local, gy + cy_local), radius, color, -1)
+
+
+def render_dot_mask(results, frame_width, frame_height, frame):
+    if not results or results[0].masks is None:
+        return np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+
+    canvas = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+    edges = _get_edges(frame)
+
+    for mask_tensor in results[0].masks.data:
+        mask = mask_tensor.cpu().numpy()
+        mask_resized = cv2.resize(mask, (frame_width, frame_height), interpolation=cv2.INTER_LINEAR)
+        binary = mask_resized > 0.3
+
+        for gy in range(0, frame_height, CANNY_GRID):
+            for gx in range(0, frame_width, CANNY_GRID):
+                _process_cell(canvas, edges, binary, gx, gy)
+
+    return canvas
