@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from core.settings import CANNY_LOW, CANNY_HIGH, CANNY_GRID, CANNY_MIN_STRENGTH
+from core.selector import collect_related_masks, select_main_person
 
 
 def _get_edges(frame):
@@ -38,20 +39,36 @@ def _process_cell(canvas, edges, binary, gx, gy):
     cv2.circle(canvas, (gx + cx_local, gy + cy_local), radius, color, -1)
 
 
-def render_dot_mask(results, frame_width, frame_height, frame):
-    if not results or results[0].masks is None:
-        return np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
-
+def render_dot_masks(binary_masks, frame_width, frame_height, frame):
     canvas = np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+    if not binary_masks:
+        return canvas
+
     edges = _get_edges(frame)
 
-    for mask_tensor in results[0].masks.data:
-        mask = mask_tensor.cpu().numpy()
-        mask_resized = cv2.resize(mask, (frame_width, frame_height), interpolation=cv2.INTER_LINEAR)
-        binary = mask_resized > 0.3
+    for binary in binary_masks:
+        if binary.shape != (frame_height, frame_width):
+            binary = cv2.resize(
+                binary.astype(np.uint8),
+                (frame_width, frame_height),
+                interpolation=cv2.INTER_NEAREST,
+            ).astype(bool)
 
         for gy in range(0, frame_height, CANNY_GRID):
             for gx in range(0, frame_width, CANNY_GRID):
                 _process_cell(canvas, edges, binary, gx, gy)
 
     return canvas
+
+
+def render_dot_mask(results, frame_width, frame_height, frame):
+    if not results:
+        return np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+
+    result = results[0]
+    if getattr(result, "masks", None) is None or getattr(result, "boxes", None) is None:
+        return np.zeros((frame_height, frame_width, 3), dtype=np.uint8)
+
+    selected_person = select_main_person(result, frame_width, frame_height)
+    related_masks = collect_related_masks(result, selected_person, frame_width, frame_height)
+    return render_dot_masks(related_masks, frame_width, frame_height, frame)

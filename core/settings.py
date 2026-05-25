@@ -20,3 +20,18 @@ TRACKER = {
     "imgsz": 640,
     "verbose": False
 }   
+
+
+PERSON_CLASS_NAMES = "person_poly"
+
+FACE_PART_CLASS_NAMES = {
+    "skin", "l_brow", "r_brow", "l_eye", "r_eye",
+    "nose", "upper_lip", "mouth", "lower_lip", "hair"
+}
+
+PERSON_CONF_THRESHOLD = 0.25
+MASK_THRESHOLD = 0.3
+AREA_WEIGHT = 0.80
+CENTER_WEIGHT = 0.10
+CONF_WEIGHT = 0.10
+RELATED_MASK_MIN_OVERLAP = 0.05
