@@ -19,4 +19,4 @@ TRACKER = {
     "tracker": "bytetrack.yaml",
     "imgsz": 640,
     "verbose": False
-}
+}   
