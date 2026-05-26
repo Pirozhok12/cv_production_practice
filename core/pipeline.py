@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from ultralytics import YOLO
 
+from core.display_mode import DEFAULT_DISPLAY_MODE, DisplayMode
 from core.settings import TRACKER
 from core.renderer import render_dot_mask
 
@@ -20,6 +21,7 @@ class VideoPipeline:
         video_path: str,
         frame_callback=None,
         output_path: str | None = None,
+        display_mode_fn=None,
         show_mask_fn=None,
     ) -> None:
         self._stop_flag = False
@@ -28,7 +30,7 @@ class VideoPipeline:
         writer = self._open_writer(output_path, cap)
 
         try:
-            self._process_loop(cap, writer, frame_callback, show_mask_fn)
+            self._process_loop(cap, writer, frame_callback, display_mode_fn, show_mask_fn)
         finally:
             self._release(cap, writer)
 
@@ -53,23 +55,41 @@ class VideoPipeline:
         fourcc = cv2.VideoWriter.fourcc(*"mp4v")
         return cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
-    def _process_loop(self, cap, writer, frame_callback, show_mask_fn) -> None:
+    def _process_loop(self, cap, writer, frame_callback, display_mode_fn, show_mask_fn) -> None:
         while cap.isOpened() and not self._stop_flag:
             ok, frame = cap.read()
             if not ok:
                 break
-            rendered = self._render_frame(frame, show_mask_fn)
+            rendered = self._render_frame(frame, display_mode_fn, show_mask_fn)
             if writer:
                 writer.write(rendered)
             if frame_callback:
                 frame_callback(rendered)
 
-    def _render_frame(self, frame: np.ndarray, show_mask_fn) -> np.ndarray:
+    def _render_frame(self, frame: np.ndarray, display_mode_fn=None, show_mask_fn=None) -> np.ndarray:
+        mode = self._resolve_display_mode(display_mode_fn, show_mask_fn)
+        if mode == DisplayMode.ORIGINAL:
+            return frame
+
         h, w = frame.shape[:2]
         results = self.model.track(frame, **TRACKER)
-        if show_mask_fn is None or show_mask_fn():
+
+        if mode == DisplayMode.DEFAULT:
+            return results[0].plot()
+
+        if mode == DisplayMode.ALL:
+            # TODO: реализовать полноценный режим "Всё" позже. Сейчас это только заглушка.
             return render_dot_mask(results, w, h, frame)
-        return results[0].plot()
+
+        return render_dot_mask(results, w, h, frame)
+
+    @staticmethod
+    def _resolve_display_mode(display_mode_fn=None, show_mask_fn=None) -> DisplayMode:
+        if display_mode_fn is not None:
+            return display_mode_fn()
+        if show_mask_fn is None:
+            return DEFAULT_DISPLAY_MODE
+        return DisplayMode.CORTICAL_VISION if show_mask_fn() else DisplayMode.DEFAULT
 
     @staticmethod
     def _release(cap: cv2.VideoCapture, writer: cv2.VideoWriter | None) -> None:

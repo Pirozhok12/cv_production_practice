@@ -3,12 +3,12 @@ venv310/
 __pycache__/
 *.pyc
 *.pyo
-
 train_yolo.ipynb
 
 *.pt
 *.pth
 *.onnx
+
 
 data/runs/
 data/samples/
@@ -18,10 +18,15 @@ data/DS_SpoonKnife/
 
 outputs/
 
-.ipynb_checkpoints/
+
+*.ipynb_checkpoints/
 
 .vscode/
 .idea/
 
 .DS_Store
 Thumbs.db
+
+train_yolov8m-seg_Face_Body_8epochs/
+
+tests/
