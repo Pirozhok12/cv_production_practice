@@ -1,5 +1,5 @@
 from PyQt6.QtCore import QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QDragEnterEvent, QDragMoveEvent, QDropEvent
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -97,29 +97,34 @@ class FileDropArea(QFrame):
         select_button.clicked.connect(self.select_requested.emit)
         layout.addWidget(select_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-    def dragEnterEvent(self, event) -> None:
-        if self._has_local_files(event.mimeData()):
-            event.acceptProposedAction()
+    def dragEnterEvent(self, a0: QDragEnterEvent | None) -> None:
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if mime is not None and self._has_local_files(mime):
+            a0.acceptProposedAction()
         else:
-            event.ignore()
+            a0.ignore()
 
-    def dragMoveEvent(self, event) -> None:
-        if self._has_local_files(event.mimeData()):
-            event.acceptProposedAction()
-        else:
-            event.ignore()
+    def dragMoveEvent(self, a0: QDragMoveEvent | None) -> None:
+        self.dragEnterEvent(a0)  # type: ignore[arg-type]
 
-    def dropEvent(self, event) -> None:
+    def dropEvent(self, a0: QDropEvent | None) -> None:
+        if a0 is None:
+            return
+        mime = a0.mimeData()
+        if mime is None:
+            return
         paths = [
             url.toLocalFile()
-            for url in event.mimeData().urls()
+            for url in mime.urls()
             if url.isLocalFile()
         ]
         if paths:
             self.files_dropped.emit(paths)
-            event.acceptProposedAction()
+            a0.acceptProposedAction()
         else:
-            event.ignore()
+            a0.ignore()
 
     @staticmethod
     def _has_local_files(mime_data) -> bool:

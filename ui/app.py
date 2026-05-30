@@ -262,6 +262,6 @@ class MainWindow(QWidget):
         scaled = pixmap.scaled(
             target,
             Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
+            Qt.TransformationMode.FastTransformation,  
         )
         self.video_label.setPixmap(scaled)

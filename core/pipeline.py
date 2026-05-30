@@ -1,10 +1,11 @@
 import cv2
 import numpy as np
 from ultralytics import YOLO
+import time
 
 from core.display_mode import DEFAULT_DISPLAY_MODE, DisplayMode
 from core.settings import TRACKER
-from core.renderer import render_dot_mask
+from core.renderer import render_dot_mask, render_dot_frame
 
 
 class VideoPipeline:
@@ -56,7 +57,11 @@ class VideoPipeline:
         return cv2.VideoWriter(output_path, fourcc, fps, (w, h))
 
     def _process_loop(self, cap, writer, frame_callback, display_mode_fn, show_mask_fn) -> None:
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
+        frame_time = 1.0 / fps
+
         while cap.isOpened() and not self._stop_flag:
+            t0 = time.perf_counter()
             ok, frame = cap.read()
             if not ok:
                 break
@@ -66,23 +71,36 @@ class VideoPipeline:
             if frame_callback:
                 frame_callback(rendered)
 
+            # Точный таймер
+            elapsed = time.perf_counter() - t0
+            sleep_time = frame_time - elapsed
+            if sleep_time > 0.002:
+                time.sleep(sleep_time - 0.002)  # спим почти всё время
+            while time.perf_counter() - t0 < frame_time:  # добиваем точно
+                pass
+
     def _render_frame(self, frame: np.ndarray, display_mode_fn=None, show_mask_fn=None) -> np.ndarray:
         mode = self._resolve_display_mode(display_mode_fn, show_mask_fn)
         if mode == DisplayMode.ORIGINAL:
             return frame
 
         h, w = frame.shape[:2]
-        results = self.model.track(frame, **TRACKER)
+        small = cv2.resize(frame, (320, 180))
+        results = self.model.track(small, **TRACKER)    
 
+        if mode == DisplayMode.ORIGINAL:
+            return frame
+        
         if mode == DisplayMode.DEFAULT:
             return results[0].plot()
 
         if mode == DisplayMode.ALL:
-            # TODO: реализовать полноценный режим "Всё" позже. Сейчас это только заглушка.
-            return render_dot_mask(results, w, h, frame)
 
+            return render_dot_frame(w, h, frame)
+        
         return render_dot_mask(results, w, h, frame)
-
+    
+    
     @staticmethod
     def _resolve_display_mode(display_mode_fn=None, show_mask_fn=None) -> DisplayMode:
         if display_mode_fn is not None:

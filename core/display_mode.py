@@ -10,9 +10,9 @@ class DisplayMode(Enum):
 
 DISPLAY_MODE_LABELS = {
     DisplayMode.ORIGINAL: "Вхідне зображення",
-    DisplayMode.DEFAULT: "Без кортикального зору",
-    DisplayMode.CORTICAL_VISION: "Кортикальний зір",
-    DisplayMode.ALL: "Усе",
+    DisplayMode.DEFAULT: "Накладені маски",
+    DisplayMode.CORTICAL_VISION: "Кортикальний зір: трекінг найближчої людини",
+    DisplayMode.ALL: "Кортикальний зір: усі об'єкти",
 }
 
 DEFAULT_DISPLAY_MODE = DisplayMode.CORTICAL_VISION

@@ -372,3 +372,15 @@ def collect_related_masks(result, selected_person: SelectedPerson | None, frame_
     if selected_person.candidate_type == "face":
         return _face_masks_for_selected(result, selected_person, count, frame_width, frame_height)
     return _person_related_masks(result, selected_person, count, frame_width, frame_height)
+
+
+
+def collect_all_masks(result, frame_width: int, frame_height: int) -> list[np.ndarray]:
+    if getattr(result, "masks", None) is None:
+        return []
+    masks = []
+    for i in range(len(result.masks.data)):
+        binary = resize_mask_to_frame(result.masks.data[i], frame_width, frame_height)
+        if compute_mask_area(binary) > 0:
+            masks.append(binary)
+    return masks
